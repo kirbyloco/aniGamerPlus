@@ -20,7 +20,7 @@ import socket
 import traceback
 
 import Config
-from Anime import Anime, TryTooManyTimeError
+from Anime import Anime, TryTooManyTimeError, Exp
 from ColorPrint import err_print
 
 
@@ -614,7 +614,8 @@ def check_new_version():
     remote_version = Config.read_latest_version_on_github()
     if float(settings['aniGamerPlus_version'][1:]) < float(remote_version['tag_name'][1:]):
         msg = '發現GitHub上有新版本: ' + \
-            remote_version['tag_name'] + '\n更新内容:\n' + remote_version['body'] + '\n'
+            remote_version['tag_name'] + '\n更新内容:\n' + \
+            remote_version['body'] + '\n'
         err_print(0, msg, status=1, no_sn=True)
 
 
@@ -678,6 +679,8 @@ if __name__ == '__main__':
 
     if settings['check_latest_version']:
         check_new_version()  # 检查新版
+    if settings['exp_test']:
+        Exp().getdb()
     version_msg = '當前aniGamerPlus版本: ' + settings['aniGamerPlus_version']
     print(version_msg)
 
@@ -818,7 +821,8 @@ if __name__ == '__main__':
         __cui(arg.sn, resolution, download_mode, thread_limit, download_episodes, save_dir, classify,
               get_info=arg.information_only, user_cmd=user_command)
 
-    err_print(0, '自動模式啓動aniGamerPlus ' + version_msg, no_sn=True, display=False)
+    err_print(0, '自動模式啓動aniGamerPlus ' +
+              version_msg, no_sn=True, display=False)
     err_print(0, '工作目錄: ' + working_dir, no_sn=True, display=False)
 
     if settings['use_proxy']:

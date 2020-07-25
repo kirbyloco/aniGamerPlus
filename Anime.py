@@ -4,6 +4,7 @@
 # @Author  : Miyouzi
 # @File    : Anime.py @Software: PyCharm
 import ftplib
+import json
 import os
 import platform
 import random
@@ -28,6 +29,17 @@ class TryTooManyTimeError(BaseException):
     pass
 
 
+class Exp():
+    def __init__(self):
+        pass
+
+    def getdb(self):
+        a = requests.get(
+            'https://raw.githubusercontent.com/kirbyloco/anigamerdatabase/master/anigamer.json').json()
+        with open('jsondata.json', 'w', encoding='utf-8') as f:
+            json.dump(a, f, indent=4, ensure_ascii=False)
+
+
 class Anime():
     def __init__(self, sn, debug_mode=False, gost_port=34173):
         self._settings = Config.read_settings()
@@ -39,6 +51,7 @@ class Anime():
 
         self._session = requests.session()
         self._title = ''
+        self.jsondb = None
         self._sn = sn
         self._bangumi_name = ''
         self._episode = ''
@@ -57,15 +70,27 @@ class Anime():
         if debug_mode:
             print('當前為debug模式')
         else:
+            self.__init_header()  # http header
             if self._settings['use_proxy']:  # 使用代理
                 self.__init_proxy()
-            self.__init_header()  # http header
-            self.__get_src()  # 获取网页, 产生 self._src (BeautifulSoup)
-            self.__get_title()  # 提取页面标题
-            self.__get_bangumi_name()  # 提取本番名字
-            self.__get_episode()  # 提取剧集码，str
-            # 提取剧集列表，结构 {'episode': sn}，储存到 self._episode_list, sn 为 int, 考慮到 劇場版 sp 等存在, key 為 str
-            self.__get_episode_list()
+            if self._settings['exp_test']:
+                with open('jsondata.json', 'r', encoding='utf-8') as f:
+                    self.jsondb = json.load(f)
+                for _title, _eps in self.jsondb.items():
+                    for _ep, _sn in _eps.items():
+                        if self._sn == int(_sn):
+                            self._title = f'{_title} [{_ep}]'
+                            self._bangumi_name = _title
+                            self._episode = _ep
+                for _ep, _sn in self.jsondb[self._bangumi_name].items():
+                    self._episode_list[_ep] = int(_sn)
+            else:
+                self.__get_src()  # 获取网页, 产生 self._src (BeautifulSoup)
+                self.__get_title()  # 提取页面标题
+                self.__get_bangumi_name()  # 提取本番名字
+                self.__get_episode()  # 提取剧集码，str
+                # 提取剧集列表，结构 {'episode': sn}，储存到 self._episode_list, sn 为 int, 考慮到 劇場版 sp 等存在, key 為 str
+                self.__get_episode_list()
 
     def __init_proxy(self):
         if self._settings['use_gost']:

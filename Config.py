@@ -122,6 +122,7 @@ def __init_settings():
                 },
                 'faststart_movflags': False,
                 'audio_language': False,
+                'exp_test': True,
                 'check_latest_version': True,  # 是否检查新版本
                 'read_sn_list_when_checking_update': True,
                 'read_config_when_checking_update': True,
@@ -394,6 +395,7 @@ def read_settings():
     settings['check_frequency'] = int(settings['check_frequency'])
     settings['download_resolution'] = str(settings['download_resolution'])
     settings['multi-thread'] = int(settings['multi-thread'])
+    settings['exp_test'] = settings['exp_test']
     settings['zerofill'] = int(settings['zerofill'])  # 保证为整数
     if not re.match(r'^(all|latest|largest-sn)$', settings['default_download_mode']):
         # 如果输入非法模式, 将重置为 latest 模式
