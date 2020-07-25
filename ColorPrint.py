@@ -5,9 +5,16 @@
 # @File    : Color.py
 # @Software: PyCharm
 
-import ctypes, subprocess, platform, os, json, re
-from termcolor import cprint
+import ctypes
+import json
+import os
+import platform
+import re
+import subprocess
 from datetime import datetime
+
+from termcolor import cprint
+
 import Config
 
 
@@ -25,7 +32,7 @@ def read_log_settings():
     except BaseException as e:
         settings['save_logs'] = True
         settings['quantity_of_logs'] = 7
-        print('日志配置讀取失敗, 將使用默認配置: 啓用日志, 最多保存7份 '+str(e))
+        print('日志配置讀取失敗, 將使用默認配置: 啓用日志, 最多保存7份 ' + str(e))
     if 'save_logs' not in settings.keys():
         settings['save_logs'] = True
     if 'quantity_of_logs' not in settings.keys():

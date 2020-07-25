@@ -5,8 +5,18 @@
 # @File    : Config.py
 # @Software: PyCharm
 
-import os, json, re, sys, requests, time, random, codecs, chardet
+import codecs
+import json
+import os
+import random
+import re
 import sqlite3
+import time
+
+import chardet
+import requests
+
+from ColorPrint import err_print
 
 working_dir = os.path.dirname(os.path.realpath(__file__))
 # working_dir = os.path.dirname(sys.executable)  # 使用 pyinstaller 编译时，打开此项
@@ -25,10 +35,11 @@ max_multi_downloading_segment = 5
 def __color_print(sn, err_msg, detail='', status=0, no_sn=False, display=True):
     # 避免与 ColorPrint.py 相互调用产生问题
     try:
-        err_print(sn, err_msg, detail=detail, status=status, no_sn=no_sn, display=display)
+        err_print(sn, err_msg, detail=detail, status=status,
+                  no_sn=no_sn, display=display)
     except UnboundLocalError:
-        from ColorPrint import err_print
-        err_print(sn, err_msg, detail=detail, status=status, no_sn=no_sn, display=display)
+        err_print(sn, err_msg, detail=detail, status=status,
+                  no_sn=no_sn, display=display)
 
 
 def get_max_multi_thread():
@@ -137,7 +148,8 @@ def __update_settings(old_settings):  # 升级配置文件
     if 'use_proxy' not in new_settings.keys():  # v2.0 新增代理开关
         new_settings['use_proxy'] = False
 
-    if 'show_error_detail' not in new_settings['ftp'].keys():  # v2.0 新增显示FTP传输错误开关
+    # v2.0 新增显示FTP传输错误开关
+    if 'show_error_detail' not in new_settings['ftp'].keys():
         new_settings['ftp']['show_error_detail'] = False
 
     if 'max_retry_num' not in new_settings['ftp'].keys():  # v2.0 新增显示FTP重传尝试数
@@ -237,7 +249,8 @@ def __update_settings(old_settings):  # 升级配置文件
     new_settings['config_version'] = latest_config_version
     with open(config_path, 'w', encoding='utf-8') as f:
         json.dump(new_settings, f, ensure_ascii=False, indent=4)
-    msg = '配置文件從 v'+str(old_settings['config_version'])+' 升級到 v'+str(latest_config_version)+' 你的有效配置不會丟失!'
+    msg = '配置文件從 v' + str(old_settings['config_version']) + \
+        ' 升級到 v' + str(latest_config_version) + ' 你的有效配置不會丟失!'
     __color_print(0, msg, status=2, no_sn=True)
 
 
@@ -271,7 +284,8 @@ def __update_database(old_version):
     except sqlite3.OperationalError as e:
         if 'no such column' in str(e):
             # 更早期的数据库没有 local_file_path , 做兼容
-            cursor.execute('ALTER TABLE anime ADD local_file_path VARCHAR(500)')
+            cursor.execute(
+                'ALTER TABLE anime ADD local_file_path VARCHAR(500)')
 
     try:
         cursor.execute('SELECT COUNT(sn) FROM anime')
@@ -290,7 +304,8 @@ def __update_database(old_version):
     cursor.close()
     conn.commit()
     conn.close()
-    msg = '資料庫從 v'+str(old_version)+' 升級到 v'+str(latest_database_version)+' 内部資料不會丟失'
+    msg = '資料庫從 v' + str(old_version) + ' 升級到 v' + \
+        str(latest_database_version) + ' 内部資料不會丟失'
     __color_print(0, msg, status=2, no_sn=True)
 
 
@@ -308,12 +323,13 @@ def __read_settings_file():
             with open(config_path, 'r', encoding='utf-8') as f:
                 return json.loads(re.sub(r'\\', '\\\\\\\\', f.read()))
         except BaseException as e:
-            __color_print(0, '讀取配置發生異常, 將重置配置! ' + str(e), status=1, no_sn=True)
+            __color_print(0, '讀取配置發生異常, 將重置配置! ' +
+                          str(e), status=1, no_sn=True)
             __init_settings()
             with open(config_path, 'r', encoding='utf-8') as f:
                 return json.load(f)
     except BaseException as e:
-        __color_print(0, '讀取配置發生異常, 將重置配置! '+str(e), status=1, no_sn=True)
+        __color_print(0, '讀取配置發生異常, 將重置配置! ' + str(e), status=1, no_sn=True)
         __init_settings()
         with open(config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
@@ -330,7 +346,7 @@ def del_bom(path, display=True):
     if have_bom:
         filename = os.path.split(path)[1]
         if display:
-            __color_print(0, '發現 '+filename+' 帶有BOM頭, 將移除后保存', no_sn=True)
+            __color_print(0, '發現 ' + filename + ' 帶有BOM頭, 將移除后保存', no_sn=True)
         try_counter = 0
         while True:
             try:
@@ -339,19 +355,20 @@ def del_bom(path, display=True):
             except BaseException as e:
                 if try_counter > 3:
                     if display:
-                        __color_print(0, '無BOM '+filename+' 保存失敗! 发生异常: '+str(e), status=1, no_sn=True)
+                        __color_print(
+                            0, '無BOM ' + filename + ' 保存失敗! 发生异常: ' + str(e), status=1, no_sn=True)
                     raise e
                 random_wait_time = random.uniform(2, 5)
                 time.sleep(random_wait_time)
                 try_counter = try_counter + 1
             else:
                 if display:
-                    __color_print(0, '無BOM '+filename+' 保存成功', status=2, no_sn=True)
+                    __color_print(0, '無BOM ' + filename + ' 保存成功',
+                                  status=2, no_sn=True)
                 break
 
 
 def read_settings():
-
 
     if not os.path.exists(config_path):
         __init_settings()
@@ -379,7 +396,8 @@ def read_settings():
     settings['multi-thread'] = int(settings['multi-thread'])
     settings['zerofill'] = int(settings['zerofill'])  # 保证为整数
     if not re.match(r'^(all|latest|largest-sn)$', settings['default_download_mode']):
-        settings['default_download_mode'] = 'latest'  # 如果输入非法模式, 将重置为 latest 模式
+        # 如果输入非法模式, 将重置为 latest 模式
+        settings['default_download_mode'] = 'latest'
     if settings['quantity_of_logs'] < 1:  # 日志数量不可小于 1
         settings['quantity_of_logs'] = 7
 
@@ -413,7 +431,8 @@ def read_settings():
         if value:
             if not (re.match(r'^http://', value.lower())
                     or re.match(r'^https://', value.lower())
-                    or re.match(r'^socks5://', value.lower())  # v12开始原生支持 socks5 代理
+                    # v12开始原生支持 socks5 代理
+                    or re.match(r'^socks5://', value.lower())
                     or re.match(r'^socks5h://', value.lower())):  # socks5h 远程解析域名
                 #  如果出现非自身支持的协议
                 use_gost = True
@@ -459,11 +478,13 @@ def check_encoding(file_path):
         else:
             # 如果为其他编码, 则转为 UTF-8 编码, 包含處理 BOM 頭
             with open(file_path, 'wb') as f2:
-                __color_print(0, '檔案讀取', file_path+' 編碼為 '+file_encoding+' 將轉碼為 UTF-8', no_sn=True, status=1)
+                __color_print(0, '檔案讀取', file_path + ' 編碼為 ' +
+                              file_encoding + ' 將轉碼為 UTF-8', no_sn=True, status=1)
                 data = data.decode(file_encoding)  # 解码
                 data = data.encode('utf-8')  # 编码
                 f2.write(data)  # 写入文件
-                __color_print(0, '檔案讀取', file_path + ' 轉碼成功', no_sn=True, status=2)
+                __color_print(0, '檔案讀取', file_path +
+                              ' 轉碼成功', no_sn=True, status=2)
 
 
 def read_sn_list():
@@ -501,16 +522,20 @@ def read_sn_list():
             if re.match(r'^\d+$', a[0]):
                 rename = ''
                 if len(a) > 1:  # 如果有特別指定下载模式
-                    if re.match(r'^(all|latest|largest-sn)$', a[1]):  # 仅认可合法的模式
+                    # 仅认可合法的模式
+                    if re.match(r'^(all|latest|largest-sn)$', a[1]):
                         sn_dict[int(a[0])] = {'mode': a[1]}
                     else:
-                        sn_dict[int(a[0])] = {'mode': settings['default_download_mode']}  # 非法模式一律替换成默认模式
+                        # 非法模式一律替换成默认模式
+                        sn_dict[int(a[0])] = {
+                            'mode': settings['default_download_mode']}
                     # 是否有设定番剧重命名
                     if re.match(r'.*<.*>.*', i):
                         rename = re.findall(r'<.*>', i)[0][1:-1]
                 else:  # 没有指定下载模式则使用默认设定
-                    sn_dict[int(a[0])] = {'mode': settings['default_download_mode']}
-                bangumi_tag = re.sub(r"( )+$","",bangumi_tag)
+                    sn_dict[int(a[0])] = {
+                        'mode': settings['default_download_mode']}
+                bangumi_tag = re.sub(r"( )+$", "", bangumi_tag)
                 sn_dict[int(a[0])]['tag'] = bangumi_tag
                 sn_dict[int(a[0])]['rename'] = rename
         return sn_dict
@@ -539,19 +564,23 @@ def read_cookie(log=False):
         # del_bom(cookie_path)  # 移除 bom
         check_encoding(cookie_path)  # 移除 bom
         if log:
-            __color_print(0, '讀取cookie', detail='發現cookie檔案', no_sn=True, display=False)
+            __color_print(0, '讀取cookie', detail='發現cookie檔案',
+                          no_sn=True, display=False)
         with open(cookie_path, 'r', encoding='utf-8') as f:
             for line in f.readlines():
                 if not line.isspace():  # 跳过空白行
                     cookies = line.replace('\n', '')  # 刪除换行符
-                    cookies = dict([l.split("=", 1) for l in cookies.split("; ")])
+                    cookies = dict([l.split("=", 1)
+                                    for l in cookies.split("; ")])
                     cookies.pop('ckBH_lastBoard', 404)
                     cookie = cookies
                     if log:
-                        __color_print(0, '讀取cookie', detail='已讀取cookie', no_sn=True, display=False)
+                        __color_print(
+                            0, '讀取cookie', detail='已讀取cookie', no_sn=True, display=False)
                     return cookie  # cookie仅一行, 读到后马上return
     else:
-        __color_print(0, '讀取cookie', detail='未發現cookie檔案', no_sn=True, display=False)
+        __color_print(0, '讀取cookie', detail='未發現cookie檔案',
+                      no_sn=True, display=False)
         cookie = {}
         return cookie
     # 如果什么也没读到(空文件)
@@ -564,7 +593,8 @@ def read_cookie(log=False):
 def invalid_cookie():
     # 当cookie失效时, 将cookie改名, 避免重复尝试失效的cookie
     if os.path.exists(cookie_path):
-        invalid_cookie_path = cookie_path.replace('cookie.txt', 'invalid_cookie.txt')
+        invalid_cookie_path = cookie_path.replace(
+            'cookie.txt', 'invalid_cookie.txt')
         try:
             global cookie
             cookie = None  # 重置已读取的cookie
@@ -572,16 +602,18 @@ def invalid_cookie():
                 os.remove(invalid_cookie_path)
             os.rename(cookie_path, invalid_cookie_path)
         except BaseException as e:
-            __color_print(0, 'cookie狀態', '嘗試標記失效cookie時遇到未知錯誤: '+str(e), no_sn=True, status=1)
+            __color_print(0, 'cookie狀態', '嘗試標記失效cookie時遇到未知錯誤: ' +
+                          str(e), no_sn=True, status=1)
         else:
-            __color_print(0, 'cookie狀態', '已成功標記失效cookie', no_sn=True, display=False)
+            __color_print(0, 'cookie狀態', '已成功標記失效cookie',
+                          no_sn=True, display=False)
 
 
 def time_stamp_to_time(timestamp):
     # 把时间戳转化为时间: 1479264792 to 2016-11-16 10:53:12
     # 代码来自: https://www.cnblogs.com/shaosks/p/5614630.html
     timeStruct = time.localtime(timestamp)
-    return time.strftime('%Y-%m-%d %H:%M:%S',timeStruct)
+    return time.strftime('%Y-%m-%d %H:%M:%S', timeStruct)
 
 
 def get_cookie_time():
@@ -605,7 +637,8 @@ def renew_cookies(new_cookie, log=True):
                 f.write(new_cookie_str)
         except BaseException as e:
             if try_counter > 3:
-                __color_print(0, '新cookie保存失敗! 发生异常: '+str(e), status=1, no_sn=True)
+                __color_print(0, '新cookie保存失敗! 发生异常: ' +
+                              str(e), status=1, no_sn=True)
                 break
             random_wait_time = random.uniform(2, 5)
             time.sleep(random_wait_time)
@@ -637,7 +670,7 @@ def __remove_superfluous_logs(max_num):
         logs_list = os.listdir(logs_dir)
         if len(logs_list) > max_num:
             logs_list.sort()
-            logs_need_remove = logs_list[0:len(logs_list)-max_num]
+            logs_need_remove = logs_list[0:len(logs_list) - max_num]
             for log in logs_need_remove:
                 log_path = os.path.join(logs_dir, log)
                 os.remove(log_path)
