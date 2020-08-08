@@ -11,12 +11,11 @@ import os
 import random
 import re
 import sqlite3
-import time
+import socket
 
+import time
 import chardet
 import requests
-
-from ColorPrint import err_print
 
 working_dir = os.path.dirname(os.path.realpath(__file__))
 # working_dir = os.path.dirname(sys.executable)  # 使用 pyinstaller 编译时，打开此项
@@ -24,8 +23,8 @@ config_path = os.path.join(working_dir, 'config.json')
 sn_list_path = os.path.join(working_dir, 'sn_list.txt')
 cookie_path = os.path.join(working_dir, 'cookie.txt')
 logs_dir = os.path.join(working_dir, 'logs')
-aniGamerPlus_version = 'v19.4'
-latest_config_version = 12.0
+aniGamerPlus_version = 'v20'
+latest_config_version = 14.0
 latest_database_version = 2.0
 cookie = None
 max_multi_thread = 5
@@ -94,10 +93,8 @@ def __init_settings():
                 # cookie的自动刷新对 UA 有检查
                 'ua': "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/72.0.3626.96 Safari/537.36",
                 'use_proxy': False,
-                'proxies': {  # 代理功能
-                    1: 'socks5://127.0.0.1:1080',
-                    2: 'http://user:passwd@example.com:1000'
-                },
+                # 代理功能, config_version v13.0 删除链式代理
+                'proxy': 'http://user:passwd@example.com:1000',
                 'upload_to_server': False,
                 'ftp': {  # 将文件上传至远程服务器
                     'server': '',
@@ -126,6 +123,16 @@ def __init_settings():
                 'check_latest_version': True,  # 是否检查新版本
                 'read_sn_list_when_checking_update': True,
                 'read_config_when_checking_update': True,
+                'ads_time': 25,
+                'use_dashboard': True,
+                'dashboard': {
+                    'host': '127.0.0.1',
+                    'port': 5000,
+                    'SSL': False,
+                    'BasicAuth': False,
+                    'username': 'admin',
+                    'password': 'admin'
+                },
                 'save_logs': True,
                 'quantity_of_logs': 7,
                 'config_version': latest_config_version,
@@ -167,12 +174,6 @@ def __update_settings(old_settings):  # 升级配置文件
 
     if 'add_bangumi_name_to_video_filename' not in new_settings.keys():  # v3.0 新增开关, 文件名可以单纯用剧集命名
         new_settings['add_bangumi_name_to_video_filename'] = True
-
-    if 'proxies' not in new_settings.keys():  # v3.0 新增代理功能
-        new_settings['proxies'] = {1: '', 2: ''}
-
-    if 'proxy' in new_settings.keys():  # v3.0 去掉旧的代理配置
-        new_settings.pop('proxy')
 
     if 'segment_download_mode' not in new_settings.keys():  # v3.1 新增分段下载模式开关
         new_settings['segment_download_mode'] = True
@@ -246,6 +247,31 @@ def __update_settings(old_settings):  # 升级配置文件
     if 'audio_language' not in new_settings.keys():
         # v19 添加音轨日语标签  #37
         new_settings['audio_language'] = False
+
+    if 'audio_language_jpn' in new_settings.keys():
+        del new_settings['audio_language_jpn']
+
+    if 'proxy' not in new_settings.keys() or 'proxies' in new_settings.keys():
+        # v20 删除链式代理功能
+        if new_settings['proxies']["1"]:
+            # 转移用户原有配置
+            new_settings['proxy'] = new_settings['proxies']["1"]
+        else:
+            new_settings['proxy'] = 'http://user:passwd@example.com:1000'
+        del new_settings['proxies']
+
+    if 'use_dashboard' not in new_settings.keys():
+        new_settings['use_dashboard'] = True
+
+    if 'dashboard' not in new_settings.keys():
+        new_settings['dashboard'] = {
+            'host': '127.0.0.1',
+            'port': 5000,
+            'SSL': False,
+            'BasicAuth': False,
+            'username': 'admin',
+            'password': 'admin'
+        }
 
     new_settings['config_version'] = latest_config_version
     with open(config_path, 'w', encoding='utf-8') as f:
@@ -364,17 +390,20 @@ def del_bom(path, display=True):
                 try_counter = try_counter + 1
             else:
                 if display:
-                    __color_print(0, '無BOM ' + filename + ' 保存成功',
-                                  status=2, no_sn=True)
+                    __color_print(0, '無BOM ' + filename +
+                                  ' 保存成功', status=2, no_sn=True)
                 break
 
 
-def read_settings():
+def read_settings(config=''):
+    if config == '':
+        if not os.path.exists(config_path):
+            __init_settings()
 
-    if not os.path.exists(config_path):
-        __init_settings()
-
-    settings = __read_settings_file()
+        settings = __read_settings_file()
+    else:
+        # 用于检查 web 控制台回传的配置是否正确
+        settings = config
 
     if 'database_version' in settings.keys():
         if settings['database_version'] < latest_database_version:
@@ -426,24 +455,16 @@ def read_settings():
     settings['working_dir'] = working_dir
     settings['aniGamerPlus_version'] = aniGamerPlus_version
 
-    # 修正 proxies 字典, 使 key 为 int, 方便用于链式代理
-    new_proxies = {}
     use_gost = False
-    for key, value in settings['proxies'].items():
-        if value:
-            if not (re.match(r'^http://', value.lower())
-                    or re.match(r'^https://', value.lower())
-                    # v12开始原生支持 socks5 代理
-                    or re.match(r'^socks5://', value.lower())
-                    or re.match(r'^socks5h://', value.lower())):  # socks5h 远程解析域名
-                #  如果出现非自身支持的协议
-                use_gost = True
-            new_proxies[int(key)] = value
-    if len(new_proxies.keys()) > 1:  # 如果代理配置大于 1 , 即使用链式代理, 则同样需要 gost
-        use_gost = True
-    settings['proxies'] = new_proxies
+    if not (re.match(r'^http://', settings['proxy'].lower())
+            or re.match(r'^https://', settings['proxy'].lower())
+            # v12开始原生支持 socks5 代理
+            or re.match(r'^socks5://', settings['proxy'].lower())
+            or re.match(r'^socks5h://', settings['proxy'].lower())):  # socks5h 远程解析域名
+        #  如果出现非自身支持的协议
+        use_gost = True  # 则启用gost
     settings['use_gost'] = use_gost
-    if not new_proxies:
+    if not settings['proxy']:
         settings['use_proxy'] = False
 
     if settings['multi-thread'] > max_multi_thread:
@@ -677,6 +698,36 @@ def __remove_superfluous_logs(max_num):
                 log_path = os.path.join(logs_dir, log)
                 os.remove(log_path)
                 __color_print(0, '刪除過期日志: ' + log, no_sn=True, display=False)
+
+
+def write_settings(web_config):
+    web_config = read_settings(web_config)  # 正规化配置
+
+    # 还原配置
+    a = os.path.join(working_dir, 'bangumi')  # 默认番剧目录
+    b = os.path.join(working_dir, 'temp')  # 默认缓存目录
+    if os.path.normcase(web_config['bangumi_dir']) == os.path.normcase(a):
+        web_config["bangumi_dir"] = ''
+    if os.path.normcase(web_config['temp_dir']) == os.path.normcase(b):
+        web_config['temp_dir'] = ''
+    del web_config['working_dir']
+    del web_config['aniGamerPlus_version']
+    del web_config['use_gost']
+
+    # 配置写入磁盘
+    with open(config_path, 'w', encoding='utf-8') as f:
+        json.dump(web_config, f, ensure_ascii=False, indent=4)
+
+
+def get_local_ip():
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    local_ip = None
+    try:
+        s.connect(('8.8.8.8', 80))
+        local_ip = s.getsockname()[0]
+    except:
+        local_ip.close()
+    return local_ip
 
 
 if __name__ == '__main__':
