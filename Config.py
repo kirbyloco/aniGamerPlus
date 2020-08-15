@@ -17,6 +17,8 @@ import time
 import chardet
 import requests
 
+from ColorPrint import err_print
+
 working_dir = os.path.dirname(os.path.realpath(__file__))
 # working_dir = os.path.dirname(sys.executable)  # 使用 pyinstaller 编译时，打开此项
 config_path = os.path.join(working_dir, 'config.json')
