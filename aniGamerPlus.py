@@ -53,6 +53,10 @@ def build_anime(sn):
         else:
             anime['anime'] = Anime(sn)
         anime['failed'] = False
+
+        if danmu:
+            anime['anime'].enable_danmu()
+
     except TryTooManyTimeError:
         err_print(sn, '抓取失敗', '影片信息抓取失敗!', status=1)
     except BaseException as e:
@@ -693,6 +697,7 @@ thread_tasks = []
 gost_subprocess = None  # 存放 gost 的 subprocess.Popen 对象, 用于结束时 kill gost
 gost_port = gost_port()  # gost 端口
 sn_dict = Config.read_sn_list()
+danmu = False
 
 if __name__ == '__main__':
     if settings['check_latest_version']:
@@ -731,12 +736,10 @@ if __name__ == '__main__':
         parser.add_argument('--current_path', '-c',
                             action='store_true', help='下載到當前工作目錄')
         parser.add_argument('--episodes', '-e', type=str, help='僅下載指定劇集')
-        parser.add_argument('--no_classify', '-n',
-                            action='store_true', help='不建立番劇資料夾')
-        parser.add_argument('--information_only', '-i',
-                            action='store_true', help='僅查詢資訊')
-        parser.add_argument('--user_command', '-u',
-                            action='store_true', help='所有下載完成后執行用戶命令')
+        parser.add_argument('--no_classify', '-n', action='store_true', help='不建立番劇資料夾')
+        parser.add_argument('--information_only', '-i', action='store_true', help='僅查詢資訊')
+        parser.add_argument('--user_command', '-u', action='store_true', help='所有下載完成后執行用戶命令')
+        parser.add_argument('--danmu', '-d', action='store_true', help='以 .ass 下載彈幕(beta)')
         arg = parser.parse_args()
 
         if (arg.download_mode not in ('list', 'multi', 'sn-list')) and arg.sn is None:
@@ -833,6 +836,9 @@ if __name__ == '__main__':
             user_command = True
         else:
             user_command = False
+
+        if arg.danmu:
+            danmu = True
 
         Config.test_cookie()  # 测试cookie
         __cui(arg.sn, resolution, download_mode, thread_limit, download_episodes, save_dir, classify,
