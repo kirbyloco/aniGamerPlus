@@ -136,8 +136,12 @@ class Anime:
             return self.__get_filename(str(self.video_resolution))
 
     def __get_src(self):
-        if self._settings['use_mobile_api']:
-            self._src = self.__request_json(f'https://api.gamer.com.tw/mobile_app/anime/v2/video.php?sn={self._sn}', no_cookies=True)
+        if self._settings["use_mobile_api"]:
+            self._src = self.__request_json(
+                f"https://api.gamer.com.tw/mobile_app/anime/v4/video.php?sn={self._sn}",
+                no_cookies=False,
+                use_pyhttpx=True,
+            )
         else:
             req = f'https://ani.gamer.com.tw/animeVideo.php?sn={self._sn}'
             f = self.__request(req, no_cookies=True, use_pyhttpx=True)
@@ -199,19 +203,23 @@ class Anime:
                 get_ep()
 
     def __get_episode_list(self):
-        if self._settings['use_mobile_api']:
-            for _type in self._src['data']['anime']['volumes']:
-                for _sn in self._src['data']['anime']['volumes'][_type]:
-                    if _type == '0': # 本篇
-                        self._episode_list[str(_sn['volume'])] = int(_sn["video_sn"])
-                    elif _type == '1': # 電影
-                        self._episode_list['電影'] = int(_sn["video_sn"])
-                    elif _type == '2': # 特別篇
-                        self._episode_list[f'特別篇{_sn["volume"]}'] = int(_sn["video_sn"])
-                    elif _type == '3': # 中文配音
-                        self._episode_list[f'中文配音{_sn["volume"]}'] = int(_sn["video_sn"])
-                    else: # 中文電影
-                        self._episode_list['中文電影'] = int(_sn["video_sn"])
+        if self._settings["use_mobile_api"]:
+            for _type in self._src["data"]["anime"]["episodes"]:
+                for _sn in self._src["data"]["anime"]["episodes"][_type]:
+                    if _type == "0":  # 本篇
+                        self._episode_list[str(_sn["episode"])] = int(_sn["videoSn"])
+                    elif _type == "1":  # 電影
+                        self._episode_list["電影"] = int(_sn["videoSn"])
+                    elif _type == "2":  # 特別篇
+                        self._episode_list[f'特別篇{_sn["episode"]}'] = int(_sn["videoSn"])
+                    elif _type == "3":  # 中文配音
+                        self._episode_list[f'中文配音{_sn["episode"]}'] = int(_sn["videoSn"])
+                    elif _type == "4":  # 中文電影
+                        self._episode_list[f'中文電影{_sn["episode"]}'] = int(_sn["videoSn"])
+                    elif _type == "5":  # 中文特別篇
+                        self._episode_list["中文特別篇"] = int(_sn["videoSn"])
+                    else:  # 未知分類
+                        self._episode_list[str(_sn["episode"])] = int(_sn["videoSn"])
         else:
             try:
                 a = self._src.find('section', 'season').find_all('a')
@@ -246,11 +254,11 @@ class Anime:
         accept_encoding = 'gzip, deflate'
         cache_control = 'max-age=0'
         self._mobile_header = {
-            "User-Agent": "Animad/1.12.5 (tw.com.gamer.android.animad; build: 222; Android 5.1.1) okHttp/4.4.0",
+            "User-Agent": "Animad/1.16.16 (tw.com.gamer.android.animad; build: 328; Android 14) okHttp/4.4.0",
             "X-Bahamut-App-Android": "tw.com.gamer.android.animad",
-            "X-Bahamut-App-Version": "222",
+            "X-Bahamut-App-Version": "328",
             "Accept-Encoding": "gzip",
-            "Connection": "Keep-Alive"
+            "Connection": "Keep-Alive",
         }
         self._web_header = {
                 "User-Agent": ua,
@@ -374,7 +382,7 @@ class Anime:
 
     def __request_json(self, req, no_cookies=False, show_fail=True, max_retry=3, addition_header=None, use_pyhttpx = False):
         if use_pyhttpx:
-            return self.__request(req, no_cookies, show_fail, max_retry, addition_header, use_pyhttpx).json
+            return self.__request(req, no_cookies, show_fail, max_retry, addition_header, use_pyhttpx).json()
         else:
             return self.__request(req, no_cookies, show_fail, max_retry, addition_header, use_pyhttpx).json()
 
@@ -387,10 +395,11 @@ class Anime:
 
         def get_playlist():
             if self._settings['use_mobile_api']:
-                req = f'https://api.gamer.com.tw/mobile_app/anime/v2/m3u8.php?sn={str(self._sn)}&device={self._device_id}'
+                req = f"https://api.gamer.com.tw/mobile_app/anime/v3/m3u8.php?videoSn={str(self._sn)}&device={self._device_id}"
+                self._playlist = self.__request_json(req, use_pyhttpx=True)["data"]
             else:
                 req = 'https://ani.gamer.com.tw/ajax/m3u8.php?sn=' + str(self._sn) + '&device=' + self._device_id
-            self._playlist = self.__request_json(req)
+                self._playlist = self.__request_json(req)
 
         def random_string(num):
             chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
